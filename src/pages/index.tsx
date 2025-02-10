@@ -25,7 +25,7 @@ export default function Home() {
   const [newMessage, setNewMessage] = useState<string>("");
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); 
 
   useEffect(() => {
     const token = localStorage.getItem("token");
