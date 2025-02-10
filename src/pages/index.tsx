@@ -1,114 +1,260 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { jwtDecode } from "jwt-decode";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+interface Message {
+  id: number;
+  content: string;
+  senderId: number;
+  recipientId: number;
+  createdAt: string;
+}
+
+interface User {
+  id: number;
+  name: string;
+}
 
 export default function Home() {
-  return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/pages/index.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const router = useRouter();
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState<string>("");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const [currentUser, setCurrentUser] = useState<User | null>(null); // Store the current user
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Manage sidebar state for mobile view
+
+  // Check if user is logged in by checking for a token
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    console.log("Token from localStorage:", token); // Debugging line
+    
+    if (!token) {
+      router.push("/login");
+    } else {
+      try {
+        const decoded: { id: number } = jwtDecode(token);
+        console.log("Decoded token:", decoded); // Debugging line
+        fetch(`${API_URL}/api/users/${decoded.id}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            console.log("Fetched user data:", data); // Debugging line
+            setCurrentUser(data); // Set the user data
+          })
+          .catch((err) => {
+            console.error("Error fetching current user:", err);
+            router.push("/login"); // Redirect to login if error occurs
+          });
+      } catch (err) {
+        console.error("Error decoding token:", err);
+        router.push("/login"); // Redirect to login if error decoding token
+      }
+    }
+  }, [router]);
+
+  // Fetch the list of users when the component mounts
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      fetch(`${API_URL}/api/users`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Error fetching users");
+          return res.json();
+        })
+        .then((data) => setUsers(Array.isArray(data) ? data : []))
+        .catch((err) => {
+          console.error("Error fetching users:", err);
+        });
+    }
+  }, []);
+
+  // Fetch messages for the selected user whenever it changes
+  useEffect(() => {
+    if (selectedUser) {
+      const token = localStorage.getItem("token");
+      fetch(`${API_URL}/api/messages?recipientId=${selectedUser}`, {
+        method: "GET",
+        credentials: "include", // ensures cookies are sent
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Unauthorized or fetch error");
+          return res.json();
+        })
+        .then((data) => setMessages(Array.isArray(data) ? data : []))
+        .catch((err) => {
+          console.error("Error fetching messages:", err);
+          setMessages([]);
+        });
+    } else {
+      setMessages([]);
+    }
+  }, [selectedUser]);
+
+  const sendMessage = async () => {
+    if (!newMessage || !selectedUser) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/messages`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: newMessage, recipientId: selectedUser }),
+      });
+
+      if (!res.ok) throw new Error("Error sending message");
+
+      const sentMessage = await res.json();
+      setMessages([...messages, sentMessage]);
+      setNewMessage("");
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
+  };
+
+  const handleLogout = () => {
+    // Remove token from localStorage and redirect to login page
+    localStorage.removeItem("token");
+    router.push("/login");
+  };
+
+  // Filter out the current user from the users list
+  const filteredUsers = currentUser
+    ? users.filter((user) => user.id !== currentUser.id)
+    : users;
+
+  return (
+    <div className="flex h-screen bg-gray-100 relative">
+      {/* Sidebar: List of Users and Logout button */}
+      <div
+        className={`${
+          isSidebarOpen ? "block" : "hidden"
+        } lg:block w-3/4 md:w-1/4 bg-slate-700 border-r overflow-y-auto p-4 fixed inset-0 md:relative md:w-1/4 md:flex-none transition-all duration-300`}
+      >
+        <div className="flex justify-between items-center p-4 border-b">
+          <h2 className="text-xl font-bold text-white">Users</h2>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 text-white bg-red-500 rounded hover:bg-red-600"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Logout
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        <div className="space-y-2">
+          {filteredUsers.length > 0 ? (
+            filteredUsers.map((user) => (
+              <button
+                key={user.id}
+                onClick={() => setSelectedUser(user.id)}
+                className={`w-full text-left p-2 rounded hover:bg-green-100 hover:text-black ${
+                  selectedUser === user.id ? "bg-indigo-200" : ""
+                }`}
+              >
+                {user.name}
+              </button>
+            ))
+          ) : (
+            <p className="text-gray-500">No users available</p>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {/* <div
+        onClick={() => setIsSidebarOpen(false)}
+        className={`${
+          isSidebarOpen ? "block" : "hidden"
+        } fixed inset-0 bg-black bg-opacity-50 z-10 md:hidden`}
+      ></div> */}
+
+      {/* Mobile Sidebar Toggle Button */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="lg:hidden absolute top-4 left-4 z-20 text-white"
+      >
+        {isSidebarOpen ? "Close" : "Open"} Sidebar
+      </button>
+
+      {/* Chat Area */}
+      <div
+        className={`flex-1 flex flex-col bg-slate-500 p-4 transition-all duration-300 ${
+          isSidebarOpen ? "ml-3/4" : "ml-0"
+        }`}
+      >
+        <div className="flex-grow overflow-y-auto">
+          {selectedUser ? (
+            <>
+              <h2 className="text-2xl font-bold mb-4 text-slate-800">
+                Chat with{" "}
+                {users.find((user) => user.id === selectedUser)?.name || "User"}
+              </h2>
+              <div className="space-y-4">
+                {messages.length > 0 ? (
+                  messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`p-2 rounded max-w-md ${
+                        msg.senderId === selectedUser
+                          ? "bg-green-500 text-xl text-left"
+                          : "bg-blue-500 text-right text-xl ml-auto"
+                      }`}
+                    >
+                      <p>{msg.content}</p>
+                      <span className="text-xs text-gray-600">
+                        {new Date(msg.createdAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500">No messages yet</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-500">Select a user to start chatting</p>
+          )}
+        </div>
+
+        {selectedUser && (
+          <div className="p-4 border-t flex">
+            <input
+              type="text"
+              className="flex-1 p-2 border rounded text-black focus:outline-none focus:border-green-600"
+              placeholder="Type a message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+            />
+            <button
+              onClick={sendMessage}
+              className="ml-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+            >
+              Send
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
