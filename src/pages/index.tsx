@@ -26,7 +26,7 @@ export default function Home() {
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
-  
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     console.log("Token from localStorage:", token);
@@ -166,9 +166,20 @@ export default function Home() {
                 onClick={() => setSelectedUser(user.id)}
                 className={`w-full text-left p-2 rounded hover:bg-green-100 hover:text-black ${
                   selectedUser === user.id ? "bg-indigo-200" : ""
-                }`}
+                } flex items-center space-x-2`}
               >
-                {user.name}
+                {/* User icon (SVG) */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  fill="currentColor"
+                  className="bi bi-person text-white"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M8 0a3 3 0 1 0 3 3 3 3 0 0 0-3-3zM8 4a3 3 0 1 0 3 3 3 3 0 0 0-3-3zM7 8a5 5 0 0 1 10 1v1a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a5 5 0 0 1 2-5z"/>
+                </svg>
+                <span className="text-white">{user.name}</span>
               </button>
             ))
           ) : (
