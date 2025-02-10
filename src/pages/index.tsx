@@ -24,20 +24,19 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
 
-  const [currentUser, setCurrentUser] = useState<User | null>(null); // Store the current user
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Manage sidebar state for mobile view
-
-  // Check if user is logged in by checking for a token
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+  
   useEffect(() => {
     const token = localStorage.getItem("token");
-    console.log("Token from localStorage:", token); // Debugging line
+    console.log("Token from localStorage:", token);
     
     if (!token) {
       router.push("/login");
     } else {
       try {
         const decoded: { id: number } = jwtDecode(token);
-        console.log("Decoded token:", decoded); // Debugging line
+        console.log("Decoded token:", decoded); 
         fetch(`${API_URL}/api/users/${decoded.id}`, {
           method: "GET",
           headers: {
@@ -47,21 +46,20 @@ export default function Home() {
         })
           .then((res) => res.json())
           .then((data) => {
-            console.log("Fetched user data:", data); // Debugging line
-            setCurrentUser(data); // Set the user data
+            console.log("Fetched user data:", data); 
+            setCurrentUser(data); 
           })
           .catch((err) => {
             console.error("Error fetching current user:", err);
-            router.push("/login"); // Redirect to login if error occurs
+            router.push("/login"); 
           });
       } catch (err) {
         console.error("Error decoding token:", err);
-        router.push("/login"); // Redirect to login if error decoding token
+        router.push("/login"); 
       }
     }
   }, [router]);
 
-  // Fetch the list of users when the component mounts
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
@@ -135,12 +133,10 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    // Remove token from localStorage and redirect to login page
     localStorage.removeItem("token");
     router.push("/login");
   };
 
-  // Filter out the current user from the users list
   const filteredUsers = currentUser
     ? users.filter((user) => user.id !== currentUser.id)
     : users;
@@ -181,15 +177,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
-      {/* <div
-        onClick={() => setIsSidebarOpen(false)}
-        className={`${
-          isSidebarOpen ? "block" : "hidden"
-        } fixed inset-0 bg-black bg-opacity-50 z-10 md:hidden`}
-      ></div> */}
-
-      {/* Mobile Sidebar Toggle Button */}
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         className="lg:hidden absolute top-4 left-4 z-20 text-white"

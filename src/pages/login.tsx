@@ -3,19 +3,16 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Login() {
-  // Step 1: State to store form data (email and password)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
 
-  // Step 2: Handle form submission
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
   
     const credentials = { email, password };
   
     try {
-      // Step 1: Send POST request to backend for authentication
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -24,15 +21,12 @@ export default function Login() {
         body: JSON.stringify(credentials),
       });
   
-      // Step 2: Parse the JSON **only once**
       const result = await response.json();
   
       if (response.ok) {
-        // Step 3: Store JWT token in localStorage
         localStorage.setItem('token', result.token); 
   
         alert('Login successful!');
-        // Step 4: Redirect user to home page
         router.push('/');
       } else {
         alert(`Error: ${result.message}`);

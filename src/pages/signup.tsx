@@ -12,7 +12,6 @@ export default function Signup() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    // Clear any previous error messages
     setError('');
 
     const userData = { name, email, password };
@@ -32,7 +31,6 @@ export default function Signup() {
         router.push("/login");
       } else {
         const errorResponse = await response.json();
-        // Set the error state with the message from backend
         setError(errorResponse.error || 'An unknown error occurred');
       }
     } catch (error) {
